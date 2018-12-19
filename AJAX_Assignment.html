@@ -1,0 +1,201 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>Canterbury Hygeine Ratings</title>
+<style>
+body {
+	background-color: #21f233;
+	font-family: Verdana, Arial, serif;
+}
+header {
+	text-align: center;
+}
+table {
+	border-collapse: collapse;
+}
+th {
+	text-align: left;
+}
+table, th, td{
+	border: solid white;
+}
+div {
+	background-color: #ffffff;
+}
+
+#seek {
+	height: 100px;
+	width: 100%;
+}
+button {
+
+    background-color: #4CAF50; 
+    border: none;
+    color: white;
+    padding: 10px 26px;
+    border-radius: 8px;
+	text-align: center;
+    text-decoration: none;
+    font-size: 12px;
+	margin: 0 4px;
+}
+button:hover {
+	background-color: #000000;
+}
+.rating {
+	border: none;
+}
+.ui-helper-hidden-accessible {
+	display: none;
+}
+#ui-id-1{
+	list-style-type: none;
+    margin: 5px;
+    padding: 5px;
+	width: 21px;
+	height: 173px;
+}
+</style>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+<script type="text/css" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css"></script>
+<script>
+var nodes = [
+			 'Ossies',
+			 'A La Turka',
+			 'Gandhi',
+			 'Maple Moose'
+			];
+$(document).ready(function() {
+	
+	function results(data) {
+	$.each(data, function(index, item) {
+	$('#content').append("<tr class='data' id='"+item.id
+	+"'><td class='business' class='data'>"+item.business
+	+"</td><td class='data address'>"+item.address
+	+"</td><td class='data hygeine'>"+item.rating
+	+"</td><td class='data date'>"+item.date
+	+"</td><td class='data rating'><button class='rating'>Get Rating</button></td></tr>");
+	});
+	
+	// Task 2.1 - mashup/customer ratings (Had to be in results function for the click event to be heard as the buttons were created within the function)
+	$('.rating').on('click', 'button', function() {
+	
+		var business = $(this).parent().siblings().filter('.business').text();
+		$(this).remove();	
+			$.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/rating.php?name="+business, function(data) {
+				// Check how many restaurants of this name have a customer rating
+				if (data.length == 1) {
+					alert(business+" currently has a customer rating of "+data[0].rating);
+				// If there are none then just send a message informing the user
+				} else if (data.length < 1) {
+					alert("There are no ratings for "+business+" as of yet");
+				} else {
+					// If there are multiple addresses, combine a foreach and a for loop to find the correct address
+					$.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=searchname&name="+business, function(comparison) {
+						$.each(comparison, function(i, j) {
+								for(k=1; k<data.length+1; k++){
+									if (data[k-1].address.indexOf(comparison[i].postcode) >= 0) {
+									alert(business+" currently has a customer rating of "+data[k-1].rating);
+								}
+							}
+						});
+					}, "json");
+				}
+			}, "json");
+	});
+	
+	}
+	
+	function empty() {
+		// Removes what is currently in the table, leaving the titles
+				$('#content').children().find('.data').remove();
+	}
+	
+	
+	// Task1.1 first page of results
+	$.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php", function(data) {
+		// For-each loop to place each key's value of the object into a <td>
+		// And each object into a row
+			results(data);
+	}, "json");
+
+	// Task 1.2 - paginator
+	$.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=pages", function(data) {
+	for(i=1;i<data.pages+1;i++)
+		{
+			$('#nav').append("<button value="+i+" class='paginator'>"+i+"</button>"); 
+		}
+		$('#nav').find('button').click(function() {
+			var page = $(this).val();
+			$.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=retrieve&page="+page, function(data){
+				empty();
+				results(data);	
+			} , "json");
+		});
+	}, "json");
+	
+	// Task 3.1 search and autocomplete
+	$('#searchterm').autocomplete({
+		autoFocus: true,
+		source: function(request, response){
+			var newNodes = [];
+			response(nodes);
+			$.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=searchname&name="+request.term, function(data) {
+				$.each(data, function(i, item) {
+					nodes.push(item.business);
+				});
+					//This is a jQuery function that removes duplicates. I tried to use it on my other array as commented below but it crashed everything. I think it's fine without it though
+					$.unique(nodes);
+				$.each(nodes, function(i, item){
+						if(item.indexOf(request.term) >= 0) {
+							newNodes.push(item);
+						}
+				});
+					//$.unique(newNodes);
+				response(newNodes);
+			}, "json"); 
+		}
+	});
+	
+	$('form').on('submit', function(data) {
+		var input = $(this).children().filter('input').val();
+			$.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=searchname&name="+input, function(data) {
+				empty();
+				results(data);
+				
+			}, "json");
+		
+		return false
+	});	
+
+	
+});
+</script>
+<script>
+</script>
+</head>
+<body>
+<header>
+<h1>Canterbury Hygeine Ratings</h1>
+<p> This is a tool to locate the hygiene ratings of all of the restaurants in Canterbury! <br>
+<p> As a special treat, click the ratings buttons to see what the customer's thought of their experiences!
+</header>
+
+<div id="nav">
+<span>Pages: </span>
+</div>
+
+<table id="content">
+<tr>
+<th>Business</th><th>Address</th><th>Hygeine rating</th><th>Date</th><th>Customer rating</th>
+</tr>
+</table>
+
+<div id="seek">
+<form><span><label for="searchterm">Search Businesses</label><input id="searchterm"/><button type='submit' id='search'>Search</button></span></form>
+</div>
+	
+</body>
+</html>
